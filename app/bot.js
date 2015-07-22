@@ -1,6 +1,7 @@
 var _ = require('underscore'),
     irc = require('irc'),
     config = require('../config/config'),
+	db = require( './models/db' ),
     client,
     commands = [],
     msgs = [];

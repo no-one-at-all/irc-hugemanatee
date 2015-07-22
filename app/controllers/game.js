@@ -33,7 +33,7 @@ var HAIKU = new Card({
  * @param cmdArgs !start command arguments
  * @constructor
  */
-var Game = function Game(channel, client, config, cmdArgs) {
+var Game = function Game(channel, client, config, cmdArgs, db) {
     var self = this;
 
     // properties
@@ -43,6 +43,7 @@ var Game = function Game(channel, client, config, cmdArgs) {
     self.channel = channel; // the channel this game is running on
     self.client = client; // reference to the irc client
     self.config = config; // configuration data
+	self.db = db; // global db for hall of shame
     self.state = STATES.STARTED; // game state storage
     self.pauseState = []; // pause state storage
     self.points = [];
@@ -92,7 +93,7 @@ var Game = function Game(channel, client, config, cmdArgs) {
     /**
      * Stop game
      */
-    self.stop = function (player, pointLimitReached) {
+    self.stop = function (player, pointLimitReached, winner) {
         self.state = STATES.STOPPED;
 
         if (typeof player !== 'undefined' && player !== null) {
@@ -103,6 +104,8 @@ var Game = function Game(channel, client, config, cmdArgs) {
         if(self.round > 1) {
             // show points if played more than one round
             self.showPoints();
+			// update stats if played more than one round. Why? Arbitrary arbitrary.
+			self.updateStats(winner);
         }
 
         // clear all timers
@@ -199,7 +202,7 @@ var Game = function Game(channel, client, config, cmdArgs) {
             var winner = _.findWhere(self.players, {points: self.pointLimit});
             if(winner) {
                 self.say(winner.nick + ' has the limit of ' + self.pointLimit + ' awesome points and is the winner of the game! Congratulations!');
-                self.stop(null, true);
+                self.stop(null, true, winner);
                 return false;
             }
         }
@@ -560,6 +563,8 @@ var Game = function Game(channel, client, config, cmdArgs) {
      */
     self.addPlayer = function (player) {
         if (typeof self.getPlayer({user: player.user, hostname: player.hostname}) === 'undefined') {
+			if (!self.owner)
+				self.owner = player;
             self.players.push(player);
             self.say(player.nick + ' has joined the game');
             // check if player is returning to game
@@ -607,18 +612,25 @@ var Game = function Game(channel, client, config, cmdArgs) {
     self.removePlayer = function (player, options) {
         options = _.extend({}, options);
         if (typeof player !== 'undefined') {
-            console.log('removing' + player.nick + ' from the game');
+            console.log('Removing ' + player.nick + ' from the game');
             // get cards in hand
             var cards = player.cards.reset();
             // remove player
             self.players = _.without(self.players, player);
             // put player's cards to discard
             _.each(cards, function (card) {
-                console.log('Add card ', card.text, 'to discard');
+                console.log('Add card ', card.text, ' to discard');
                 self.discards.answer.addCard(card);
             });
             if (options.silent !== true) {
                 self.say(player.nick + ' has left the game');
+            }
+
+			// check game owner
+			if ( player == self.owner ) {
+				// succession of ownership
+				self.owner = self.players[0];
+				self.say(self.owner? self.owner.nick + ' is the new owner' : 'Game is now ownerless');
             }
 
             // check if remaining players have all player
@@ -685,6 +697,19 @@ var Game = function Game(channel, client, config, cmdArgs) {
         });
         self.say('The most horrible people: ' + output.slice(0, -2));
     };
+
+    /**
+     * Update stats! Stats are updated once even one round has been played.
+	 * Might fix this so that points are only recorded if n rounds have been played
+	 * where n is equal to the number of players.
+     */
+    self.updateStats = function (winner) {
+		self.players.forEach( function( player ) {
+			var isWinner = winner.nick && winner.nick == player.nick;
+			self.db.updateStats(self.channel, player, isWinner);
+		});
+    };
+
 
     /**
      * Show status

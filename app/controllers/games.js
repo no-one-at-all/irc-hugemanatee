@@ -2,7 +2,8 @@
 var _ = require('underscore'),
     Game = require('./game'),
     Player = require('../models/player'),
-    config = require('../../config/config');
+    config = require('../../config/config'),
+	db = require( '../models/db' );
 
 var Games = function Games() {
     var self = this;
@@ -35,12 +36,35 @@ var Games = function Games() {
             client.say(channel, 'A game is already running. Type !join to join the game.');
         } else {
             // init game
-            var game = new Game(channel, client, config, cmdArgs);
+            var game = new Game(channel, client, config, cmdArgs, db);
             self.games.push(game);
             var player = new Player(nick, user, hostname);
             game.addPlayer(player);
         }
     };
+
+    /**
+     * Return a list of top player stats. This is a per-channel value, and now that I fixed it
+	 * for per-channel stats, I can't think of a way to get globals.
+     * @param client
+     * @param message
+     * @param cmdArgs
+     */
+	self.hof = function(client, message, cmdArgs) {
+		var channel = message.args[0],
+			user = message.user,
+			game = self.findGame(channel);
+		db.hof(channel, function(wins, points) {
+			var leaderboard,
+				mapWins = function( item ) { return item.nick + ' (' + item.wins + ')' },
+				mapPoints = function( item ) { return item.nick + ' (' + item.points + ')' };
+			leaderboard = wins.length ? 'Wins leaderboard - ' + wins.map( mapWins ).join( '; ' ) + '.'
+				: 'No winner stats available for this channel.';
+			leaderboard += points.length ? ' Points leaderboard - ' + points.map( mapPoints ).join('; ') + '. '
+				: ' No points stats available for this channel.';
+			client.say(channel, leaderboard);
+		});
+	}
 
     /**
      * Stop a game
@@ -57,8 +81,9 @@ var Games = function Games() {
             client.say(channel, 'No game running. Start the game by typing !start.');
         } else {
             var player = game.getPlayer({user: user, hostname: hostname});
-            if (typeof(player) !== 'undefined') {
-                game.stop(game.getPlayer({user: user, hostname: hostname}));
+			console.log( 'game.owner = ' + game.owner )
+            if (typeof(player) !== 'undefined' && (player == game.owner || !game.owner)) {
+                game.stop(player);
                 self.games = _.without(self.games, game);
             }
         }
@@ -144,6 +169,26 @@ var Games = function Games() {
             client.say(channel, 'No game running. Start the game by typing !start.');
         } else {
             game.removePlayer(game.getPlayer({user: user, hostname: hostname}));
+        }
+    };
+
+    /**
+     * Kick player from game. Only game owner can do it.
+     * @param client
+     * @param message
+     * @param cmdArgs
+     */
+    self.kick = function (client, message, cmdArgs) {
+        var target, requestor,
+			channel = message.args[0],
+            game = self.findGame(channel);
+        if (typeof game === 'undefined') {
+            client.say(channel, 'No game running. Start the game by typing !start.');
+        } else {
+            target = game.getPlayer({nick:cmdArgs[0]});
+			requestor = game.getPlayer({nick:message.nick});
+			if (requestor == game.owner)
+				game.removePlayer(target);
         }
     };
 
