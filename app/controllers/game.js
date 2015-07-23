@@ -104,9 +104,10 @@ var Game = function Game(channel, client, config, cmdArgs, db) {
         if(self.round > 1) {
             // show points if played more than one round
             self.showPoints();
-			// update stats if played more than one round. Why? Arbitrary arbitrary.
-			self.updateStats(winner);
         }
+		if (self.round >= 1)
+			// update stats if played one or more rounds. Why? Arbitrary arbitrary.
+			self.updateStats(winner);
 
         // clear all timers
         clearTimeout(self.startTimeout);

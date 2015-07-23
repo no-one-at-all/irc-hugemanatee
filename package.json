@@ -1,14 +1,19 @@
 {
-  "name": "irc-cah",
-  "version": "0.6.0",
+  "name": "irc-hugemanatee",
+  "version": "0.7.0",
   "description": "Cards Against Humanity IRC bot",
   "main": "app.js",
   "author": "Teemu Lahti <teemu.lahti@gmail.com>",
+  "contributors": {
+    "name": "no-one-at-all",
+    "email": "no-one-at-all@users.noreply.github.com"
+  },
   "license": "Creative Commons BY-NC-SA 2.0",
   "scripts": {
     "start": "node node_modules/grunt-cli/bin/grunt",
     "test": "node node_modules/grunt-cli/bin/grunt test"
   },
+  "repository": "https://github.com/no-one-at-all/irc-hugemanatee.git",
   "dependencies": {
     "underscore": "latest",
     "grunt": "latest",
@@ -19,7 +24,7 @@
     "grunt-nodemon": "~0.2.1",
     "nodemon": "~1.0.17",
     "jayschema": "~0.2.7",
-	"sqlite3": "*"
+    "sqlite3": "*"
   },
   "devDependencies": {
     "grunt-contrib-watch": "latest",
